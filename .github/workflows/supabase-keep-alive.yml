@@ -1,0 +1,33 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: '17 4 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping-db:
+    name: Ping Database via PostgREST
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Send keep-alive query
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          CLEAN_URL="${SUPABASE_URL%/}"
+
+          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X GET "$CLEAN_URL/rest/v1/plants?select=id&limit=1" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY")
+
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
+          BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            exit 0
+          else
+            exit 1
+          fi
